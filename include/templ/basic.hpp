@@ -1,7 +1,3 @@
-//
-// Created by cc on 1/20/17.
-//
-
 #ifndef TEMPL_BASIC_HPP
 #define TEMPL_BASIC_HPP
 
@@ -111,10 +107,10 @@ template<class>
 struct class_template;
 // e.g.
 // class_template<
-//     src::pack<int, void>
+//     templ::pack<int, void>
 // >::template type<char, float>
 //     is equivalent to
-// src::pack<char, float>
+// templ::pack<char, float>
 
 template<template<class...> class T, class ...Ts>
 struct class_template<T<Ts...>>
@@ -265,31 +261,6 @@ struct repeat_helper2<T, Ts...>
 template<class ...Ts>
 using repeat_helper2_t = typename repeat_helper2<Ts...>::type;
 
-// TODO: is_constexpr
-//template<class, class = void_t<>>
-//struct is_constexpr_impl : std::false_type {};
-//
-//template<
-//    class F, class ...Args // Args assumed to be integral constants
-//>
-//struct is_constexpr_impl<pack<F, Args...>,
-//    void_t<std::integral_constant<int, (F(Args...)>> :
-//    std::true_type {};
-//
-//namespace detail {
-//template<int>
-//struct sfinae_true : std::true_type {};
-//
-//template<class T>
-//sfinae_true<(T::f(), 0)> check(int);
-//
-//template<class>
-//std::false_type check(...);
-//} // detail::
-//
-//template<class T>
-//struct has_constexpr_f : decltype(detail::check<T>(0)){};
-
-} // namespace src
+} // namespace templ
 
 #endif // TEMPL_BASIC_HPP

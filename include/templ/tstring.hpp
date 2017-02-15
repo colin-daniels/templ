@@ -1,7 +1,3 @@
-//
-// Created by cc on 1/20/17.
-//
-
 #ifndef TEMPL_STRING_HPP
 #define TEMPL_STRING_HPP
 
@@ -91,6 +87,6 @@ auto test_make_tstring()
 static_assert(std::is_same<decltype(test_make_tstring()),
     pack<tstring<>, tstring<'\0'>, tstring<'h', 'i'>>>::value, "");
 
-} // namespace src
+} // namespace templ
 
 #endif // TEMPL_STRING_HPP

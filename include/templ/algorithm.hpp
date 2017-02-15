@@ -1156,6 +1156,6 @@ struct sort_impl<T_in<T0, T1, Ts...>, Compare>
 template<class T, template<class...> class Compare = less>
 using sort_t = typename sort_impl<T, Compare>::type;
 
-} // namespace src
+} // namespace templ
 
 #endif // TEMPL_ALGORITHM_HPP

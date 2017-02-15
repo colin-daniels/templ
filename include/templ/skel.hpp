@@ -1,7 +1,3 @@
-//
-// Created by cc on 1/20/17.
-//
-
 #ifndef TEMPL_SKEL_HPP
 #define TEMPL_SKEL_HPP
 
@@ -76,35 +72,6 @@ struct get_functor
     constexpr void operator()(U&& member) {
         std::forward<T>(output) = std::forward<U>(member);}
 };
-
-// decltype(skel<foo>::at<skel<foo>::field_id("name")>);
-
-//template<std::size_t Idx, class T>
-//struct leaf
-//{
-//    T value;
-//};
-//
-//template<class, class...>
-//struct tuplet_impl;
-//
-//template<class ...Ts, std::size_t ...I>
-//struct tuplet_impl<std::index_sequence<I...>, Ts...> :
-//    public leaf<I, Ts>...
-//{
-//    tuplet_impl(Ts ...args) :
-//        leaf<I, Ts>{std::forward<Ts>(args)}... {}
-//};
-//
-//template<class ...Ts>
-//struct tuplet
-//{
-//    tuplet_impl<std::make_index_sequence<sizeof...(Ts)>, Ts...> impl;
-//
-//    tuplet(Ts...args) : impl(std::forward<Ts>(args)...) {}
-//};
-//
-//tuplet<int, char, std::string> t(1, 'c', "str");
 
 template<class Field, class Obj>
 struct leaf
@@ -350,6 +317,6 @@ using skel = decltype(define_skeleton(std::declval<std::decay_t<T>>()));
 #define SKEL_FIELD(name, var)                                                  \
 templ::make_field<decltype(&var), &var>(MAKE_TSTRING(name))
 
-} // namespace src
+} // namespace templ
 
 #endif // TEMPL_SKEL_HPP

@@ -45,6 +45,6 @@ using map_at_t = at_t<T, map_find_v<T, Key>>;
 template<class Key, class ...KeyValues>
 using switch_t = typename map_at_t<map<KeyValues...>, Key>::template value_t<0>;
 
-} // namespace src
+} // namespace templ
 
 #endif // TEMPL_MAP_HPP

@@ -411,6 +411,6 @@ static_assert(std::is_same<pack<lit<0>, lit<1>, lit<2>, lit<3>>,
 static_assert(std::is_same<pack<lit<0>, lit<1>, lit<2>, lit<3>>,
     sort_t<pack<lit<2>, lit<3>, lit<0>, lit<1>>>>::value, "");
 
-} // namespace src
+} // namespace templ
 
 #endif // TEMPL_TEST_ALGORITHM_HPP
