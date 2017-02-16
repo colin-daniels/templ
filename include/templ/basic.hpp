@@ -1,6 +1,8 @@
 #ifndef TEMPL_BASIC_HPP
 #define TEMPL_BASIC_HPP
 
+#include <type_traits>
+
 namespace templ {
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -40,22 +42,8 @@ struct pack {};
 template<class ...Ts>
 constexpr pack<Ts...> make_pack(Ts&&...) {return {};}
 
-
-
-/// utility 'any' class, can be constructed or converted to any type
-struct any_t
-{
-    any_t() = default;
-
-    template<class T>
-    any_t(T&&);
-
-    template<class T>
-    any_t& operator=(T&&);
-
-    template<class T>
-    operator T();
-};
+template<class T>
+constexpr auto as_ptr_v = static_cast<T*>(nullptr);
 
 /// std::size_t integral constant
 template<std::size_t N>

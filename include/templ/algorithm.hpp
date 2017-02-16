@@ -13,25 +13,6 @@ namespace templ {
 // TODO: fix clang compiler errors
 
 ////////////////////////////////////////////////////////////////////////////////
-// misc                                                                       //
-////////////////////////////////////////////////////////////////////////////////
-
-template<class T, T ...Vals>
-using integral_pack = pack<std::integral_constant<T, Vals>...>;
-
-
-// TODO: remove when done
-template<class ...Ts>
-struct abstract
-{
-    virtual void func() = 0;
-};
-
-
-template<class T>
-constexpr auto as_ptr_v = static_cast<T*>(nullptr);
-
-////////////////////////////////////////////////////////////////////////////////
 // size, empty, clear                                                         //
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -223,7 +204,7 @@ struct move_impl<To<ToTypes...>, From<FromTypes...>>
 
 /// move parameter pack from From into To
 template<class To, class From>
-using move_t = typename move_impl<From, To>::type;
+using move_t = typename move_impl<To, From>::type;
 
 
 
@@ -1154,7 +1135,7 @@ struct sort_impl<T_in<T0, T1, Ts...>, Compare>
 
 /// sort T's parameter pack using Compare
 template<class T, template<class...> class Compare = less>
-using sort_t = typename sort_impl<T, Compare>::type;
+using sort_t = move_t<T, typename sort_impl<T, Compare>::type>;
 
 } // namespace templ
 

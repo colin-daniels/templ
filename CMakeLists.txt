@@ -22,13 +22,13 @@ endif()
 if(TEMPL_ENABLE_TESTS)
     add_executable(templ_test
             test/main.cpp
-            test/cases/algorithm.hpp
+            test/test_algorithm.hpp
             include/templ/templ.hpp
             include/templ/algorithm.hpp
             include/templ/basic.hpp
             include/templ/map.hpp
             include/templ/skel.hpp
-            include/templ/tstring.hpp)
+            include/templ/tstring.hpp test/test_common.hpp)
 
     target_link_libraries(templ_test templ)
 endif()
