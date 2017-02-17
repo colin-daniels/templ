@@ -1,11 +1,11 @@
 #ifndef TEMPL_HEADER_HPP
 #define TEMPL_HEADER_HPP
 
-#include <templ/basic.hpp>
-#include <templ/algorithm.hpp>
-#include <templ/map.hpp>
+#include "basic.hpp"
+#include "algorithm.hpp"
+#include "map.hpp"
 
-#include <templ/tstring.hpp>
-#include <templ/skel.hpp>
+#include "tstring.hpp"
+#include "skel.hpp"
 
 #endif // TEMPL_HEADER_HPP

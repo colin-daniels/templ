@@ -2,15 +2,11 @@
 #define TEMPL_SKEL_HPP
 
 #include "basic.hpp"
-#include <templ/tstring.hpp>
+#include "tstring.hpp"
 #include "algorithm.hpp"
 
 #include <type_traits>
 #include <utility>
-
-#include "basic.hpp"
-#include <templ/tstring.hpp>
-#include "algorithm.hpp"
 
 namespace templ {
 

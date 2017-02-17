@@ -6,11 +6,9 @@
 // TODO: see if we can leave this out?
 #include <algorithm>
 
-#include <templ/basic.hpp>
+#include "basic.hpp"
 
 namespace templ {
-
-// TODO: fix clang compiler errors
 
 ////////////////////////////////////////////////////////////////////////////////
 // size, empty, clear                                                         //
@@ -359,9 +357,16 @@ struct select_helper
 template<template<class...> class T, class ...Ts, std::size_t ...I>
 struct select_helper<T<Ts...>, std::index_sequence<I...>, true>
 {
+    using input = indexer<std::index_sequence_for<Ts...>, Ts...>;
+#ifdef TEMPL_CAN_DEDUCT_SELECT
     using type = typename decltype(select_impl<T, I...>(
-        (I, indexer<std::index_sequence_for<Ts...>, Ts...>{})...
+        (I, input{})...
     ))::type;
+#else
+    using type = T<
+        typename decltype(select_impl_single<I>(input{}))::type...
+    >;
+#endif
 };
 
 /// get the parameters from T's parameter pack which correspond to the indices
@@ -832,7 +837,7 @@ struct lexicographical_compare_impl<Compare, T, U, Loc, true>
 
 /// compare two parameter packs lexicographically, using the specified
 /// comparator (or templ::less if none provided)
-template<class T, class U, template<class...> class Compare = less>
+template<class T, class U, template<class...> class Compare = templ::less>
 constexpr bool lexicographical_compare_v =
     lexicographical_compare_impl<Compare, T, U>::value;
 
