@@ -347,6 +347,8 @@ template<
 >
 id<T<Ts...>> select_impl(indexed<I, Ts>...);
 
+template<std::size_t I, class T>
+id<T> select_impl_single(indexed<I, T>);
 
 template<class T, class IndexSeq, bool Exec = true>
 struct select_helper
