@@ -304,7 +304,7 @@ template<typename ...Fields>
 constexpr auto make_skeleton(Fields...) {
     // note that we sort the fields (by name) in a pack<> struct and
     // then move them into the skeleton struct
-    return templ::construct_t<sort_t<pack<Fields...>>, skeleton_t>{};
+    return templ::construct_t<skeleton_t, sort_t<pack<Fields...>>>{};
 }
 
 template<typename T>

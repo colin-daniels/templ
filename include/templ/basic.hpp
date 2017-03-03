@@ -2,6 +2,7 @@
 #define TEMPL_BASIC_HPP
 
 #include <type_traits>
+#include <utility>
 
 namespace templ {
 
@@ -248,6 +249,128 @@ struct repeat_helper2<T, Ts...>
 /// helper alias for repeating types via type parameter packs
 template<class ...Ts>
 using repeat_helper2_t = typename repeat_helper2<Ts...>::type;
+
+
+////////////////////////////////////////////////////////////////////////////////
+// type manipulation                                                          //
+////////////////////////////////////////////////////////////////////////////////
+
+/// copy const specifier from U to T
+template<class T, class U>
+using copy_const_t = std::conditional_t<
+    std::is_const<U>::value,
+    std::add_const_t<T>, T
+>;
+
+/// copy volatile specifier from U to T
+template<class T, class U>
+using copy_volatile_t = std::conditional_t<
+    std::is_volatile<U>::value,
+    std::add_volatile_t<T>, T
+>;
+
+/// copy cv specifiers from U to T
+template<class T, class U>
+using copy_cv_t = copy_const_t<copy_volatile_t<T, U>, U>;
+
+
+
+/// copy lvalue reference from U to T
+template<class T, class U>
+using copy_lvalue_ref_t = std::conditional_t<
+    std::is_lvalue_reference<U>::value,
+    std::add_lvalue_reference_t<T>, T
+>;
+
+/// copy rvalue reference from U to T
+template<class T, class U>
+using copy_rvalue_ref_t = std::conditional_t<
+    std::is_rvalue_reference<U>::value,
+    std::add_rvalue_reference_t<T>, T
+>;
+
+/// copy lvalue or rvalue reference from U to T
+template<class T, class U>
+using copy_ref_t = copy_rvalue_ref_t<copy_lvalue_ref_t<T, U>, U>;
+
+
+
+template<class T, class U, bool = std::is_pointer<U>::value>
+struct copy_pointer_helper { using type = T; };
+
+template<class T, class U>
+struct copy_pointer_helper<T, U, true>
+{
+    using type = typename copy_pointer_helper<
+        std::add_pointer_t<T>,
+        std::remove_pointer_t<U>
+    >::type;
+};
+
+/// copy all pointers from U to T (e.g. copy_ptrs_t<double, int**> -> double**)
+template<class T, class U>
+using copy_ptrs_t = typename copy_pointer_helper<T, U>::type;
+
+
+
+/// copy the signedness of U to T
+template<class T, class U>
+using copy_signed_t = std::conditional_t<
+    std::is_signed<U>::value, std::make_signed_t<T>, std::make_unsigned_t<T>>;
+
+
+
+template<class T, class Seq = std::index_sequence<>>
+struct get_extents_helper { using type = Seq; };
+
+template<class T, std::size_t N, std::size_t ...I>
+struct get_extents_helper<T[N], std::index_sequence<I...>>
+{
+    using type = typename get_extents_helper<T,
+        std::index_sequence<N, I...>>::type;
+};
+
+template<class T, std::size_t ...I>
+struct get_extents_helper<T[], std::index_sequence<I...>>
+{
+    using type = typename get_extents_helper<T,
+        std::index_sequence<0, I...>>::type;
+};
+
+/// get the extents of T as an std::index_sequence in reverse order
+/// (e.g. int[][1][2][3] -> <3, 2, 1, 0>)
+template<class T>
+using get_extents_t = typename get_extents_helper<T>::type;
+
+
+
+template<class T, class Seq>
+struct add_extents_helper { using type = T; };
+
+template<class T, std::size_t I, std::size_t ...Is>
+struct add_extents_helper<T, std::index_sequence<I, Is...>>
+{
+    using type = typename std::conditional_t<(I == 0),
+        // note if there is a zero that's not at the end of the sequence,
+        // the compiler will point towards here with an error about
+        // incomplete type, add_extents_t takes a sequence in _reverse_ order
+        add_extents_helper<T[], std::index_sequence<Is...>>,
+        add_extents_helper<T[I], std::index_sequence<Is...>>
+    >::type;
+};
+
+/// add extents to T in reverse order, corresponding to values given in an
+/// std::index_sequence Seq (e.g.
+/// add_extents_t<int, <3, 2, 1, 0>> -> int[][1][2][3])
+template<class T, class Seq>
+using add_extents_t = typename add_extents_helper<T, Seq>::type;
+
+
+
+/// copy the array extents of U to T (e.g.
+/// copy_extents_t<int, double[][1][2]> -> int[][1][2])
+template<class T, class U>
+using copy_extents_t = add_extents_t<T, get_extents_t<U>>;
 
 } // namespace templ
 

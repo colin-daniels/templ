@@ -3,6 +3,8 @@
 
 #include <type_traits>
 #include <utility>
+#include <string>
+#include <array>
 
 #include "basic.hpp"
 #include "algorithm.hpp"
@@ -57,8 +59,8 @@ template<
 >
 struct less<templ::tstring<Cs...>, templ::tstring<Rs...>> :
     lexicographical_compare<
-        integral_pack<char, Cs...>,
-        integral_pack<char, Rs...>
+        std::integer_sequence<char, Cs...>,
+        std::integer_sequence<char, Rs...>
     > {};
 
 template<class S, std::size_t ...I>
