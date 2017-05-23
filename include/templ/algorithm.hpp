@@ -10,6 +10,8 @@
 
 namespace templ {
 
+// TODO: Issues with zero-length-arrays
+
 ////////////////////////////////////////////////////////////////////////////////
 // size, empty, clear                                                         //
 ////////////////////////////////////////////////////////////////////////////////
@@ -1093,7 +1095,11 @@ struct merge_impl<A_in<A0, As...>, B_in<B0, Bs...>, Compare, true>
 // TODO: probably need to use to_pack_t and whatnot
 /// merge sorted B into sorted A using comparator Compare
 template<class A, class B, template<class...> class Compare = less>
-using merge_t = typename merge_impl<A, B, Compare>::type;
+using merge_t = move_t<A, typename merge_impl<
+    construct_t<pack, A>,
+    construct_t<pack, B>,
+    Compare
+>::type>;
 
 ////////////////////////////////////////////////////////////////////////////////
 // sort                                                                       //

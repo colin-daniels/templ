@@ -7,6 +7,7 @@
 
 #include <type_traits>
 #include <utility>
+#include <iostream>
 
 namespace templ {
 
@@ -26,9 +27,9 @@ struct field_t
         return std::forward<U>(obj).*ptr;}
 };
 
-template<class Obj, class Field, class ...Ignored>
+template<class Obj, class Field, class ...>
 struct field_return_impl :
-    id<decltype(std::declval<Field>().get(std::declval<Obj>()))> {};
+    id<decltype(Field::template get<Obj>(std::declval<Obj>()))> {};
 
 // alias template needs to have parameter pack as second template argument
 // due to DR1430
@@ -47,113 +48,85 @@ template<class U, U ptr, class Name>
 constexpr field_t<Name, U, ptr> make_field(Name) {return {};}
 
 
-template<class T>
-struct set_functor
-{
-    T input;
+namespace detail {
 
-    template<class U, class = std::enable_if_t<
-            std::is_assignable<U, T>::value>>
-    constexpr void operator()(U&& member) {
-        std::forward<U>(member) = std::forward<T>(input);}
+template<typename O, typename T, typename Field,
+    bool = std::is_assignable<field_return_t<O, Field>, T>::value>
+struct get_field_setter : std::integral_constant<std::nullptr_t, nullptr> {};
+
+template<typename O, typename T, typename Field>
+struct get_field_setter<O, T, Field, true>
+{
+    static void field_set(O object, T input) {
+        Field::get(std::forward<O>(object)) = std::forward<T>(input); }
+
+    static constexpr auto value = field_set;
 };
 
-template<class T>
-struct get_functor
+template<typename O, typename  T, typename ...Fields>
+inline void field_set_jtable(std::size_t field_idx, O object, T value)
 {
-    T output;
+    using fn_t = void(*)(O, T);
+    static constexpr fn_t jump_table[] = {
+        get_field_setter<O, T, Fields>::value...
+    };
 
-    template<class U, class = std::enable_if_t<
-        std::is_assignable<T, U>::value>>
-    constexpr void operator()(U&& member) {
-        std::forward<T>(output) = std::forward<U>(member);}
+    jump_table[field_idx](object, value);
+}
+
+
+
+template<typename O, typename T, typename Field,
+    bool = std::is_convertible<field_return_t<O, Field>, T>::value>
+struct get_field_getter : std::integral_constant<std::nullptr_t, nullptr> {};
+
+template<typename O, typename T, typename Field>
+struct get_field_getter<O, T, Field, true>
+{
+    static T field_get(O object) {
+        return Field::get(std::forward<O>(object)); }
+
+    static constexpr auto value = field_get;
 };
 
-template<class Field, class Obj>
-struct leaf
+template<typename O, typename  T, typename ...Fields>
+inline T field_get_jtable(std::size_t field_idx, O object)
 {
-    static constexpr decltype(auto) get(Obj obj, const char *name) noexcept
-    {
-        if (Field::name::cmp(name) == 0)
-            return std::forward<Obj>(obj).*Field::member_ptr;
-    }
-};
+    using fn_t = T(*)(O);
+    static constexpr fn_t jump_table[] = {
+        get_field_getter<O, T, Fields>::value...
+    };
 
+    return jump_table[field_idx](object);
+}
+
+} // namespace detail
+
+// TODO: Make private constructor, non-copyable, etc
 template<class O, class ...Fields>
 struct intermediary_t
 {
     O obj;
-    const char *name;
+    const std::size_t field_idx;
 
-    template<std::size_t N>
-    using at = templ::at_t<pack<Fields...>, N>;
-
-    template<class T, class Field>
-    using is_get_compatible = typename compose<
-        partial<std::is_assignable, T>::template type,
-        partial<field_return_t, O>::template type
-    >::template type<Field>;
-
-    template<template<class> class Predicate>
-    using compatible_intermediary = copy_if_t<
-        pack<Fields...>, intermediary_t<O>, Predicate>;
-
-
-    static constexpr std::size_t size() {return sizeof...(Fields);}
-
-    template<
-        class T,
-        class Compat = compatible_intermediary<
-            partial<is_get_compatible, T>::template type>,
-        class = std::enable_if_t<(!empty_v<Compat> && size_v<Compat> != size())>
-    >
-    constexpr operator T() {
-        return Compat{std::forward<O>(obj)};
+    template<typename T>
+    T as() {
+        return detail::field_get_jtable<O, T, Fields...>(field_idx, obj);
     }
 
-
-    template<
-        class T,
-        class = std::enable_if_t<all_of_v<
-            pack<Fields...>,
-            compose<
-                partial<std::is_assignable, T>::template type,
-                partial<field_return_t, O>::template type
-            >::template type
-        >>
-    >
-    constexpr operator T() {
-        return get_impl<T>();
-    }
-
-    template<
-        class T, int L = 0, int R = size(),
-        class = std::enable_if_t<(L < R)>
-    >
-    constexpr T get_impl()
+    template<class T>
+    void operator=(T&& value)
     {
-        constexpr auto idx = (L + R) / 2;
-        int cmp = at<idx>::cmp(name);
-
-        if (cmp < 0)
-            return get_impl<T, L, idx - 1>();
-        else if (cmp > 0)
-            return get_impl<T, idx + 1, R>();
-
-        return std::forward<O>(obj).*at<idx>::member_ptr;
-    }
-
-    template<class T, int L, int R>
-    constexpr T get_impl(
-        std::enable_if_t<(L >= R)>* = nullptr)
-    {
-        return std::forward<O>(obj).*at<L>::member_ptr;
+        detail::field_set_jtable<O, T, Fields...>(
+            field_idx, obj, std::forward<T>(value));
     }
 };
 
-template<class ...Fields>
+template<class O, class ...Fields>
 struct skeleton_t
 {
+    O object;
+
     /// type alias which returns the field type at the specified index
     template<std::size_t N>
     using at = templ::at_t<pack<Fields...>, N>;
@@ -164,9 +137,9 @@ struct skeleton_t
 
     /// helper template that gives a skeleton_t<> that only contains fields
     /// that can be passed to a given functor of type F assuming object type O
-    template<class F, class O>
-    using compatible_skel = copy_if_t<
-        pack<Fields...>, skeleton_t<>,
+    template<class F>
+    using func_compatible_skel = copy_if_t<
+        pack<Fields...>, skeleton_t<O>,
         compose<
             partial<is_callable, F>::template type,
             partial<field_return_t, O>::template type
@@ -176,127 +149,91 @@ struct skeleton_t
     /// number of fields
     static constexpr std::size_t size() {return sizeof...(Fields);}
 
+    /// whether the skeleton is empty, aka size() == 0
+    static constexpr bool empty() {return size() == 0;}
+
+    /// get an intermediary type for setting/getting fields
+    auto operator[](const char *name)
+    {
+        return intermediary_t<O, Fields...>{
+            object, find(name)
+        };
+    }
+
     /// get the field id (numeric) for the given field name
-    static constexpr std::size_t field_id(const char *name) {
-        return field_id_impl(name);}
+    static constexpr std::size_t find(const char *name) {
+        return find_impl(name);}
 
 
     /// apply the given functor to each field, passing the member variable
     /// associated with the field and object as the argument
-    template<class T, class F>
-    static constexpr void for_each(T&& obj, F&& func)
+    template<class F>
+    constexpr void for_each(F&& func)
     {
-        compatible_skel<F, T>::for_each_impl(
-            std::forward<T>(obj), std::forward<F>(func)
+        for_each_impl(
+            std::forward<F>(func)
         );
     }
 
-    /// assign the value of the input variable to the field with the given name
-    template<class T, class U>
-    static constexpr void set(T&& obj, const char *name, U&& input)
-    {
-        apply(
-            std::forward<T>(obj), name,
-            set_functor<U>{std::forward<U>(input)}
-        );
-    }
-
-    /// assign the value of the field with the given name to the output variable
-    template<class T, class U>
-    static constexpr void get(T&& obj, const char *name, U&& output)
-    {
-        apply(
-            std::forward<T>(obj), name,
-            get_functor<U>{std::forward<U>(output)}
-        );
-    }
-
-    template<class T>
-    static constexpr auto get_int(T&& obj, const char *name)
-    {
-        return intermediary_t<T, Fields...>{std::forward<T>(obj), name};
-    }
-
-    /// binary search to apply functor
-    template<class T, class F>
-    static constexpr void apply(T&& obj, const char *name, F&& func)
-    {
-        compatible_skel<F, T>::apply_impl(
-            std::forward<T>(obj), name, std::forward<F>(func));
-    }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementations                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-    template<
-        size_t N = 0, class O, class F,
-        class = std::enable_if_t<(N < size())>
-    >
-    static constexpr void for_each_impl(O&& obj, F&& func)
+    template<class Field, class F>
+    auto apply_impl(F& func)
+        -> void_t<decltype(
+            func(
+                Field::name::as_std_string(),
+                Field::get(std::forward<O>(object))
+            )
+        )>
     {
-        // apply
-        std::forward<F>(func)(at<N>::get(std::forward<O>(obj)));
-        // move to the next one
-        for_each<N + 1>(std::forward<O>(obj), std::forward<F>(func));
+        func(
+            Field::name::as_std_string(),
+            Field::get(std::forward<O>(object))
+        );
     }
 
-    template<size_t N = 0, class O, class F>
-    static constexpr void for_each_impl(O&&, F&&,
+    template<class Field, class F>
+    constexpr void apply_impl(F&&) {}
+
+    template<
+        std::size_t N = 0, class F,
+        class = std::enable_if_t<(N < size())>
+    >
+    constexpr void for_each_impl(F&& func)
+    {
+        // apply
+        apply_impl<at<N>>(func);
+        // move to the next one
+        for_each_impl<N + 1>(std::forward<F>(func));
+    }
+
+    template<std::size_t N = 0, class F>
+    constexpr void for_each_impl(F&&,
         std::enable_if_t<(N >= size())>* = nullptr) {}
 
     template<
-        int L = 0, int R = size(),
+        std::size_t  L = 0, std::size_t  R = size(),
         class = std::enable_if_t<(L < R)>
     >
-    static constexpr std::size_t field_id_impl(const char *name)
+    static constexpr std::size_t find_impl(const char *name)
     {
-        constexpr auto idx = (L + R) / 2;
-        int cmp = at<idx>::cmp(name);
+        constexpr auto idx = L + (R - L) / 2;
+        const auto cmp = at<idx>::name::cmp(name);
 
         if (cmp < 0)
-            return field_id_impl<L, idx - 1>(name);
+            return find_impl<idx + 1, R>(name);
         else if (cmp > 0)
-            return field_id_impl<idx + 1, R>(name);
-
-        return idx;
-    }
-
-    template<int L, int R>
-    static constexpr std::size_t field_id_impl(const char*,
-        std::enable_if_t<(L >= R)>* = nullptr) {return 0;}
-
-    template<
-        int L = 0, int R = size(),
-        class T, class F,
-        class = std::enable_if_t<(L < R)>
-    >
-    static constexpr void apply_impl(T&& obj, const char *name, F&& func)
-    {
-        constexpr auto idx = (L + R) / 2;
-        using field_type = at<idx>;
-
-        auto cmp = field_type::name::cmp(name);
-
-        if (cmp < 0)
-        {
-            apply_impl<L, idx - 1>(std::forward<T>(obj), name,
-                std::forward<F>(func));
-        }
-        else if (cmp > 0)
-        {
-            apply_impl<idx + 1, R>(std::forward<T>(obj), name,
-                std::forward<F>(func));
-        }
+            return find_impl<L, idx>(name);
         else
-        {
-            std::forward<F>(func)(field_type::get(std::forward<T>(obj)));
-        }
+            return idx;
     }
 
-    template<int L, int R, class F, class T>
-    static constexpr void apply_impl(T&&, const char*, F&&,
-        std::enable_if_t<(L >= R)>* = nullptr) {}
+    template<std::size_t L, std::size_t R>
+    static constexpr std::size_t find_impl(const char*,
+        std::enable_if_t<(L >= R)>* = nullptr) { return size(); }
 };
 
 /// 'construct' skeleton type from list of fields
@@ -304,14 +241,113 @@ template<typename ...Fields>
 constexpr auto make_skeleton(Fields...) {
     // note that we sort the fields (by name) in a pack<> struct and
     // then move them into the skeleton struct
-    return templ::construct_t<skeleton_t, sort_t<pack<Fields...>>>{};
+    return sort_t<pack<Fields...>>{};
 }
 
 template<typename T>
-using skel = decltype(define_skeleton(std::declval<std::decay_t<T>>()));
+using define_skel_result_t =
+    decltype(define_skeleton(std::declval<std::decay_t<T>>()));
 
-#define SKEL_FIELD(name, var)                                                  \
+template<typename T>
+using skel_type = concat_t<skeleton_t<T>, define_skel_result_t<T>>;
+
+template<typename T, typename = void_t<>>
+struct has_skeleton : std::false_type {};
+
+template<typename T>
+struct has_skeleton<T, void_t<define_skel_result_t<T>>> :
+    std::true_type {};
+
+template<typename T>
+constexpr bool has_skeleton_v = has_skeleton<T>::value;
+
+template<typename T>
+auto skel(T&& object) {
+    return skel_type<T>{std::forward<T>(object)};
+}
+
+template<class U, U ptr, class Name>
+auto make_field_sname(Name)
+{
+    constexpr auto colon_pos = Name::find_last_of(':'),
+        substr_pos = (colon_pos == std::string::npos) ?
+                        0 : std::min(Name::size(), colon_pos + 1);
+
+    return make_field<U, ptr>(Name::template substr<substr_pos>());
+}
+
+/// remove namespace(s) from name, via finding last colon
+template<typename Name>
+using remove_ns_t = decltype(
+    Name::template substr<
+        Name::find_last_of(':') == std::string::npos ?
+            0 : std::min(Name::size(), Name::find_last_of(':') + 1)
+    >()
+);
+
+#define SKEL_FIELD_AUTO(var)                                                   \
+templ::make_field_sname<decltype(&var), &var>(MAKE_TSTRING(#var))
+
+#define SKEL_FIELD(var, name)                                                  \
 templ::make_field<decltype(&var), &var>(MAKE_TSTRING(name))
+
+///// Usage ////////////////////////////////////////////////////////////////////
+//
+// struct test
+// {
+//     std::string name = "Fred";
+//     int integer = -1;
+//     double pi = 3.14159;
+//     std::vector<double> vec = {1.0, 2.0, 3.0};
+// };
+//
+// // should be either in the global namespace or visible via ADL
+// auto define_skeleton(test&&)
+// {
+//     return templ::make_skeleton(
+//         SKEL_FIELD_AUTO(test::integer),
+//         SKEL_FIELD_AUTO(test::vec),
+//         SKEL_FIELD(test::name, "name_str"),
+//         SKEL_FIELD(test::pi, "PI")
+//     );
+// }
+//
+// int main(int argc, char *argv[])
+// {
+//     test a;
+//     auto s = templ::skel(a);
+//
+//     std::cout << "name: " << a.name << std::endl;
+//     s["name_str"] = "Bob";
+//     std::cout << "name: " << s["name_str"].as<std::string>() << std::endl;
+//
+//     int &iref = s["integer"].as<int&>();
+//     iref = 0;
+//     std::cout << "\ninteger: " << a.integer << std::endl;
+//     s["integer"] = -1;
+//
+//     std::cout << "\nFields: " << std::endl;
+//     s.for_each([](std::string str, auto &&v)
+//         -> templ::void_t<decltype(std::cout << v)> {
+//         std::cout << str << ": " << v << std::endl;
+//     });
+//
+//     return 0;
+// }
+//
+///// Output ///////////////////////////////////////////////////////////////////
+//
+// name: Fred
+// name: Bob
+//
+// integer: 0
+//
+// Fields:
+// PI: 3.14159
+// integer: -1
+// name_str: Bob
+//
+////////////////////////////////////////////////////////////////////////////////
 
 } // namespace templ
 

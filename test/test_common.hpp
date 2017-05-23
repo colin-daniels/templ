@@ -17,7 +17,7 @@ using integral_pack = pack<std::integral_constant<std::size_t, Vals>...>;
 
 /// test pack for testing template methods
 template<class ...Ts>
-struct tpack {virtual void f() = 0;};
+struct tpack {virtual ~tpack() = default; virtual void f() = 0;};
 
 /// testing class that can only take a specific number of template args
 template<class T1, class T2, class T3, class T4>
