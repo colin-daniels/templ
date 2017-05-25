@@ -232,23 +232,61 @@ struct less<
 template<class T>
 constexpr auto false_v = false;
 
+
+template<class T>
+struct is_integral_constant : std::false_type {};
+
+template<class T, T value>
+struct is_integral_constant<std::integral_constant<T, value>>
+    : std::true_type {};
+
+template<class T>
+constexpr bool is_integral_constant_v = is_integral_constant<T>::value;
+
+
 /// helper alias for repeating types via sequences
 template<class T, std::size_t>
 using repeat_helper_t = T;
 
-// TODO: rename or something idk -_-
-template<class...>
-struct repeat_helper2;
 
-template<class T, class ...Ts>
-struct repeat_helper2<T, Ts...>
-{
-    using type = T;
-};
+template<class T, class ...>
+struct crush_types { using type = T; };
 
 /// helper alias for repeating types via type parameter packs
-template<class ...Ts>
-using repeat_helper2_t = typename repeat_helper2<Ts...>::type;
+template<class T, class ...Ts>
+using crush_types_t = typename crush_types<T, Ts...>::type;
+
+
+
+template<typename T, typename = bool_constant<true>>
+struct cexpr_callable_ic : std::false_type {};
+
+template<typename T>
+struct cexpr_callable_ic<T, bool_constant<(static_cast<void>(T::value()), true)>>
+    : std::true_type {};
+
+template<typename T, typename = bool_constant<true>>
+struct cexpr_callable_type : std::false_type {};
+
+template<typename T>
+struct cexpr_callable_type<T, bool_constant<(static_cast<void>(T{}()), true)>>
+    : std::true_type {};
+
+
+
+template<typename T>
+struct is_constexpr_callable : cexpr_callable_type<T>::type {};
+
+template<typename F, F ptr>
+struct is_constexpr_callable<std::integral_constant<F, ptr>>
+    : cexpr_callable_ic<std::integral_constant<F, ptr>>::type {};
+
+template<class T>
+constexpr bool is_constexpr_callable_v = is_constexpr_callable<T>::value;
+
+template<class F, F ptr>
+constexpr bool is_constexpr_callable_v2 = is_constexpr_callable_v<
+    std::integral_constant<F, ptr>>;
 
 
 ////////////////////////////////////////////////////////////////////////////////

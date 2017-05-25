@@ -253,7 +253,7 @@ struct fill_impl;
 template<class U, template<class...> class T, class ...Ts>
 struct fill_impl<T<Ts...>, U>
 {
-    using type = T<repeat_helper2_t<U, Ts>...>;
+    using type = T<crush_types_t<U, Ts>...>;
 };
 
 /// fill T's parameter pack with type U
