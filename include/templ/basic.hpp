@@ -50,9 +50,6 @@ constexpr auto as_ptr_v = static_cast<T*>(nullptr);
 template<std::size_t N>
 using ic_size_t = std::integral_constant<std::size_t, N>;
 
-template<bool ok>
-struct tmp_assert {static_assert(ok, "");};
-
 template<class T>
 using t_type = typename T::type;
 
@@ -229,8 +226,20 @@ struct less<
 // random things                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-template<class T>
-constexpr auto false_v = false;
+/// make value dependent on type insofar as template instantiation goes
+template<class ..., class U>
+constexpr auto make_dependent(U&& value) noexcept
+{
+    return std::forward<U>(value);
+}
+// e.g.
+// template<class T>
+// struct foo { static_assert(make_dependent<T>(false), "description"); };
+//
+// will not throw an error unless a non-specialized foo is instantiated
+
+template<class ...Ts>
+constexpr auto false_v = make_dependent<Ts...>(false);
 
 
 template<class T>
