@@ -16,7 +16,7 @@ template<class Name, class T, T ptr,
 struct field_t
 {
     using name = Name;
-    using value_type = member_ptr_value_t<T>;
+    using value_type = member_ptr_object_t<T>;
     using class_type = member_ptr_class_t<T>;
 
     static constexpr T member_ptr = ptr;

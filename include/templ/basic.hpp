@@ -50,6 +50,9 @@ constexpr auto as_ptr_v = static_cast<T*>(nullptr);
 template<std::size_t N>
 using ic_size_t = std::integral_constant<std::size_t, N>;
 
+template<class T, T v>
+using ic = std::integral_constant<T, v>;
+
 template<class T>
 using t_type = typename T::type;
 
@@ -108,28 +111,28 @@ struct class_template<T<Ts...>>
 
 
 template<class>
-struct member_ptr_value_impl;
+struct member_ptr_object;
 
 template<class T, class U>
-struct member_ptr_value_impl<T U::*> : id<T> {};
+struct member_ptr_object<T U::*> : id<T> {};
 
 /// helper template to extract value type out of a member object pointer
 template<class T>
-using member_ptr_value_t = typename member_ptr_value_impl<T>::type;
+using member_ptr_object_t = typename member_ptr_object<T>::type;
 // e.g. struct foo {double val;}
-// member_ptr_value_t<decltype(&foo::val)> is equivalent to double
+// member_ptr_object_t<decltype(&foo::val)> is equivalent to double
 
 
 
 template<class>
-struct member_ptr_class_impl;
+struct member_ptr_class;
 
 template<class T, class U>
-struct member_ptr_class_impl<T U::*> : id<U> {};
+struct member_ptr_class<T U::*> : id<U> {};
 
 /// helper template to extract class type out of a member object pointer
 template<class T>
-using member_ptr_class_t = typename member_ptr_class_impl<T>::type;
+using member_ptr_class_t = typename member_ptr_class<T>::type;
 // e.g. struct foo {double val;}
 // member_ptr_class_t<decltype(&foo::val)> is equivalent to foo
 
@@ -225,6 +228,15 @@ struct less<
 ////////////////////////////////////////////////////////////////////////////////
 // random things                                                              //
 ////////////////////////////////////////////////////////////////////////////////
+
+template<class T>
+struct is_reference_wrapper : std::false_type {};
+
+template<class U>
+struct is_reference_wrapper<std::reference_wrapper<U>> : std::true_type {};
+
+template<class T>
+constexpr auto is_reference_wrapper_v = is_reference_wrapper<T>::value;
 
 /// make value dependent on type insofar as template instantiation goes
 template<class ..., class U>
@@ -343,12 +355,12 @@ using copy_ref_t = copy_rvalue_ref_t<copy_lvalue_ref_t<T, U>, U>;
 
 
 template<class T, class U, bool = std::is_pointer<U>::value>
-struct copy_pointer_helper { using type = T; };
+struct copy_ptrs { using type = T; };
 
 template<class T, class U>
-struct copy_pointer_helper<T, U, true>
+struct copy_ptrs<T, U, true>
 {
-    using type = typename copy_pointer_helper<
+    using type = typename copy_ptrs<
         std::add_pointer_t<T>,
         std::remove_pointer_t<U>
     >::type;
@@ -356,7 +368,7 @@ struct copy_pointer_helper<T, U, true>
 
 /// copy all pointers from U to T (e.g. copy_ptrs_t<double, int**> -> double**)
 template<class T, class U>
-using copy_ptrs_t = typename copy_pointer_helper<T, U>::type;
+using copy_ptrs_t = typename copy_ptrs<T, U>::type;
 
 
 
@@ -368,41 +380,41 @@ using copy_signed_t = std::conditional_t<
 
 
 template<class T, class Seq = std::index_sequence<>>
-struct get_extents_helper { using type = Seq; };
+struct get_extents { using type = Seq; };
 
 template<class T, std::size_t N, std::size_t ...I>
-struct get_extents_helper<T[N], std::index_sequence<I...>>
+struct get_extents<T[N], std::index_sequence<I...>>
 {
-    using type = typename get_extents_helper<T,
+    using type = typename get_extents<T,
         std::index_sequence<N, I...>>::type;
 };
 
 template<class T, std::size_t ...I>
-struct get_extents_helper<T[], std::index_sequence<I...>>
+struct get_extents<T[], std::index_sequence<I...>>
 {
-    using type = typename get_extents_helper<T,
+    using type = typename get_extents<T,
         std::index_sequence<0, I...>>::type;
 };
 
 /// get the extents of T as an std::index_sequence in reverse order
 /// (e.g. int[][1][2][3] -> <3, 2, 1, 0>)
 template<class T>
-using get_extents_t = typename get_extents_helper<T>::type;
+using get_extents_t = typename get_extents<T>::type;
 
 
 
 template<class T, class Seq>
-struct add_extents_helper { using type = T; };
+struct add_extents { using type = T; };
 
 template<class T, std::size_t I, std::size_t ...Is>
-struct add_extents_helper<T, std::index_sequence<I, Is...>>
+struct add_extents<T, std::index_sequence<I, Is...>>
 {
     using type = typename std::conditional_t<(I == 0),
         // note if there is a zero that's not at the end of the sequence,
         // the compiler will point towards here with an error about
         // incomplete type, add_extents_t takes a sequence in _reverse_ order
-        add_extents_helper<T[], std::index_sequence<Is...>>,
-        add_extents_helper<T[I], std::index_sequence<Is...>>
+        add_extents<T[], std::index_sequence<Is...>>,
+        add_extents<T[I], std::index_sequence<Is...>>
     >::type;
 };
 
@@ -410,7 +422,7 @@ struct add_extents_helper<T, std::index_sequence<I, Is...>>
 /// std::index_sequence Seq (e.g.
 /// add_extents_t<int, <3, 2, 1, 0>> -> int[][1][2][3])
 template<class T, class Seq>
-using add_extents_t = typename add_extents_helper<T, Seq>::type;
+using add_extents_t = typename add_extents<T, Seq>::type;
 
 
 
